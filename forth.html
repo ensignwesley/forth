@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wesley's Forth — REPL</title>
+<style>
+:root {
+  --bg:      #0a0e12;
+  --panel:   #0d1117;
+  --border:  #1e2d3d;
+  --teal:    #2dd4bf;
+  --teal2:   #0d9488;
+  --orange:  #f59e0b;
+  --red:     #ef4444;
+  --dim:     #4a5568;
+  --text:    #e2e8f0;
+  --muted:   #718096;
+  --ok:      #4ade80;
+  --err:     #f87171;
+  --mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; }
+
+/* ── Layout ── */
+body { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 1fr 280px; height: 100vh; gap: 0; }
+header     { grid-column: 1/-1; display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--panel); border-bottom: 2px solid var(--teal); }
+#main      { grid-column: 1; display: flex; flex-direction: column; overflow: hidden; }
+#sidebar   { grid-column: 2; overflow-y: auto; border-left: 1px solid var(--border); background: var(--panel); }
+footer     { grid-column: 1/-1; padding: 8px 20px; background: var(--panel); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--muted); }
+
+/* ── Header ── */
+.logo      { font-size: 20px; font-weight: 700; color: var(--teal); letter-spacing: 2px; text-transform: uppercase; }
+.subtitle  { color: var(--muted); font-size: 12px; }
+.status-dot{ width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-left: auto; }
+.status-dot.connected { background: var(--ok); }
+#status-text { font-size: 12px; color: var(--muted); }
+.hdr-btn   { padding: 4px 12px; background: none; border: 1px solid var(--teal2); color: var(--teal); cursor: pointer; font-family: var(--mono); font-size: 11px; border-radius: 2px; }
+.hdr-btn:hover { background: var(--teal2); color: #000; }
+
+/* ── Terminal ── */
+#terminal  { flex: 1; overflow-y: auto; padding: 16px 20px; line-height: 1.7; scroll-behavior: smooth; }
+.line      { white-space: pre-wrap; word-break: break-all; }
+.line.input{ color: var(--teal); }
+.line.input::before { content: 'ok> '; color: var(--teal2); }
+.line.input.compiling::before { content: '    '; }
+.line.ok   { color: var(--text); }
+.line.error{ color: var(--err); }
+.line.sys  { color: var(--orange); font-style: italic; }
+
+/* ── Input row ── */
+#input-row { display: flex; align-items: center; border-top: 1px solid var(--border); padding: 8px 20px; gap: 8px; }
+#prompt    { color: var(--teal2); white-space: nowrap; min-width: 40px; }
+#inp       { flex: 1; background: none; border: none; color: var(--teal); font-family: var(--mono); font-size: 14px; outline: none; caret-color: var(--teal); }
+#inp::placeholder { color: var(--dim); }
+#send-btn  { padding: 4px 14px; background: var(--teal2); border: none; color: #000; font-family: var(--mono); font-size: 12px; cursor: pointer; border-radius: 2px; font-weight: 700; }
+#send-btn:hover { background: var(--teal); }
+
+/* ── Sidebar ── */
+.sb-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.sb-title   { font-size: 10px; letter-spacing: 2px; color: var(--teal2); text-transform: uppercase; margin-bottom: 10px; }
+.example    { padding: 5px 8px; margin-bottom: 4px; border-left: 2px solid var(--border); cursor: pointer; font-size: 12px; color: var(--muted); transition: all .15s; line-height: 1.4; }
+.example:hover { border-left-color: var(--teal); color: var(--text); background: rgba(45,212,191,.06); }
+.example .ex-desc { font-size: 10px; color: var(--dim); }
+.ref-item   { margin-bottom: 6px; font-size: 11px; color: var(--muted); }
+.ref-item strong { color: var(--text); }
+.ref-item code { background: rgba(255,255,255,.05); padding: 1px 4px; border-radius: 2px; color: var(--teal); font-size: 11px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--teal2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">⟐ FORTH</div>
+    <div class="subtitle">stack-based · zero dependencies · RFC 6455</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+    <span id="status-text">connecting…</span>
+    <span class="status-dot" id="dot"></span>
+  </div>
+  <button class="hdr-btn" onclick="resetEnv()">RESET</button>
+  <button class="hdr-btn" onclick="clearTerm()">CLEAR</button>
+</header>
+
+<div id="main">
+  <div id="terminal"></div>
+  <div id="input-row">
+    <span id="prompt">ok&gt;</span>
+    <input id="inp" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+           placeholder="2 3 + ." autofocus>
+    <button id="send-btn" onclick="sendLine()">ENTER</button>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="sb-section">
+    <div class="sb-title">Examples</div>
+
+    <div class="example" onclick="tryExample('2 3 + .')">
+      <div>2 3 + .</div>
+      <div class="ex-desc">basic arithmetic</div>
+    </div>
+    <div class="example" onclick="tryExample(': SQUARE DUP * ;\n5 SQUARE .')">
+      <div>: SQUARE DUP * ;</div>
+      <div class="ex-desc">define a word</div>
+    </div>
+    <div class="example" onclick="tryExample(': FACT DUP 1 > IF DUP 1- RECURSE * THEN ;\n10 FACT .')">
+      <div>: FACT ... RECURSE ;</div>
+      <div class="ex-desc">recursive factorial</div>
+    </div>
+    <div class="example" onclick="tryExample('5 0 DO I . LOOP')">
+      <div>5 0 DO I . LOOP</div>
+      <div class="ex-desc">DO/LOOP counter</div>
+    </div>
+    <div class="example" onclick="tryExample(': EVENS 20 0 DO I . 2 +LOOP ;\nEVENS')">
+      <div>DO ... 2 +LOOP</div>
+      <div class="ex-desc">step by 2</div>
+    </div>
+    <div class="example" onclick="tryExample('VARIABLE X\n42 X !\nX @ .')">
+      <div>VARIABLE X  42 X !  X @ .</div>
+      <div class="ex-desc">variables</div>
+    </div>
+    <div class="example" onclick="tryExample('42 CONSTANT ANSWER\nANSWER .')">
+      <div>42 CONSTANT ANSWER</div>
+      <div class="ex-desc">constants</div>
+    </div>
+    <div class="example" onclick="tryExample(': ABS DUP 0 < IF NEGATE THEN ;\n-7 ABS .')">
+      <div>IF ... ELSE ... THEN</div>
+      <div class="ex-desc">conditionals</div>
+    </div>
+    <div class="example" onclick="tryFizzBuzz()">
+      <div>FizzBuzz (1–20)</div>
+      <div class="ex-desc">the classic</div>
+    </div>
+    <div class="example" onclick="trySieve()">
+      <div>Primes &lt; 50 (sieve)</div>
+      <div class="ex-desc">variables + loops</div>
+    </div>
+    <div class="example" onclick="tryExample('1 2 3 4 5 .S')">
+      <div>.S — show stack</div>
+      <div class="ex-desc">peek without popping</div>
+    </div>
+    <div class="example" onclick="tryExample(': DOUBLE 2 * ;\nSEE DOUBLE')">
+      <div>SEE DOUBLE</div>
+      <div class="ex-desc">decompile a word</div>
+    </div>
+    <div class="example" onclick="tryExample('WORDS')">
+      <div>WORDS</div>
+      <div class="ex-desc">list vocabulary</div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Stack Words</div>
+    <div class="ref-item"><code>DUP</code> <strong>( n -- n n )</strong></div>
+    <div class="ref-item"><code>DROP</code> <strong>( n -- )</strong></div>
+    <div class="ref-item"><code>SWAP</code> <strong>( a b -- b a )</strong></div>
+    <div class="ref-item"><code>OVER</code> <strong>( a b -- a b a )</strong></div>
+    <div class="ref-item"><code>ROT</code> <strong>( a b c -- b c a )</strong></div>
+    <div class="ref-item"><code>NIP</code> <strong>( a b -- b )</strong></div>
+    <div class="ref-item"><code>TUCK</code> <strong>( a b -- b a b )</strong></div>
+    <div class="ref-item"><code>.S</code> show stack</div>
+    <div class="ref-item"><code>DEPTH</code> stack depth</div>
+    <div class="ref-item"><code>>R R> R@</code> return stack</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Control Flow</div>
+    <div class="ref-item"><code>IF … THEN</code></div>
+    <div class="ref-item"><code>IF … ELSE … THEN</code></div>
+    <div class="ref-item"><code>BEGIN … UNTIL</code></div>
+    <div class="ref-item"><code>BEGIN … WHILE … REPEAT</code></div>
+    <div class="ref-item"><code>n lim DO … LOOP</code></div>
+    <div class="ref-item"><code>n lim DO … step +LOOP</code></div>
+    <div class="ref-item"><code>LEAVE</code> exit loop</div>
+    <div class="ref-item"><code>RECURSE</code> self-call</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Arithmetic</div>
+    <div class="ref-item"><code>+ - * / MOD /MOD</code></div>
+    <div class="ref-item"><code>NEGATE ABS MAX MIN</code></div>
+    <div class="ref-item"><code>1+ 1- 2+ 2- 2* 2/</code></div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Comparison</div>
+    <div class="ref-item"><code>= &lt; &gt; &lt;&gt; &lt;= &gt;=</code></div>
+    <div class="ref-item"><code>0= 0&lt; 0&gt;</code></div>
+    <div class="ref-item">True = <strong>-1</strong>, False = <strong>0</strong></div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">I/O & Memory</div>
+    <div class="ref-item"><code>.</code> print TOS</div>
+    <div class="ref-item"><code>EMIT</code> print char</div>
+    <div class="ref-item"><code>CR SPACE SPACES</code></div>
+    <div class="ref-item"><code>." text"</code> print string</div>
+    <div class="ref-item"><code>@ ! +!</code> fetch/store</div>
+    <div class="ref-item"><code>?</code> fetch+print</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Commands</div>
+    <div class="ref-item"><code>WORDS</code> list all words</div>
+    <div class="ref-item"><code>SEE name</code> decompile</div>
+    <div class="ref-item"><strong>RESET</strong> — fresh environment</div>
+    <div class="ref-item"><strong>CLEAR</strong> — wipe terminal</div>
+  </div>
+</div>
+
+<footer>
+  <span>Wesley's Forth — built from scratch, zero dependencies</span>
+  <span id="footer-info" style="margin-left:auto;">RFC 6455 WebSocket · Python stdlib only</span>
+</footer>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let ws       = null;
+let history  = [];
+let histIdx  = -1;
+let multiline= [];  // accumulate multi-line input
+
+const term   = document.getElementById('terminal');
+const inp    = document.getElementById('inp');
+const dot    = document.getElementById('dot');
+const stxt   = document.getElementById('status-text');
+const prompt = document.getElementById('prompt');
+
+// ── Syntax highlighting ────────────────────────────────────────────────────────
+const CONTROL  = /\b(IF|ELSE|THEN|BEGIN|UNTIL|WHILE|REPEAT|DO|LOOP|\+LOOP|LEAVE|RECURSE)\b/g;
+const DEFWORDS = /\b(:|;|VARIABLE|CONSTANT|IMMEDIATE)\b/g;
+const STRING   = /\."[^"]*"/g;
+const NUMBER   = /\b-?\d+\b/g;
+const STACKOPS = /\b(DUP|DROP|SWAP|OVER|ROT|-ROT|NIP|TUCK|2DUP|2DROP|2SWAP|2OVER|\.S|DEPTH|\?DUP|>R|R>|R@)\b/g;
+
+function highlight(s) {
+  // escape HTML first
+  let h = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(STRING,   m => `<span style="color:#a3e635">${m}</span>`);
+  h = h.replace(DEFWORDS, m => `<span style="color:#f59e0b">${m}</span>`);
+  h = h.replace(CONTROL,  m => `<span style="color:#c084fc">${m}</span>`);
+  h = h.replace(STACKOPS, m => `<span style="color:#38bdf8">${m}</span>`);
+  h = h.replace(NUMBER,   m => `<span style="color:#fb923c">${m}</span>`);
+  return h;
+}
+
+// ── Terminal output ────────────────────────────────────────────────────────────
+function addLine(text, cls) {
+  const lines = text.split('\n');
+  for (const l of lines) {
+    if (!l && lines.length > 1) continue;
+    const div = document.createElement('div');
+    div.className = 'line ' + (cls || '');
+    if (cls === 'input') {
+      div.innerHTML = highlight(l);
+    } else {
+      div.textContent = l;
+    }
+    term.appendChild(div);
+  }
+  term.scrollTop = term.scrollHeight;
+}
+
+function clearTerm() {
+  term.innerHTML = '';
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url   = `${proto}//${location.host}/forth/ws`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    dot.classList.add('connected');
+    stxt.textContent = 'connected';
+    inp.focus();
+  };
+
+  ws.onclose = () => {
+    dot.classList.remove('connected');
+    stxt.textContent = 'disconnected';
+    addLine('Connection closed. Refresh to reconnect.', 'sys');
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {
+    stxt.textContent = 'error';
+  };
+
+  ws.onmessage = (ev) => {
+    const text = ev.data.trim();
+    if (!text) return;
+    const cls = text.includes('Error:') ? 'error' : 'ok';
+    addLine(text, cls);
+  };
+}
+
+// ── Send ───────────────────────────────────────────────────────────────────────
+function sendLine() {
+  const raw = inp.value;
+  if (!raw.trim() && multiline.length === 0) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    addLine('Not connected.', 'sys'); return;
+  }
+
+  multiline.push(raw);
+  history.unshift(raw);
+  if (history.length > 200) history.pop();
+  histIdx = -1;
+
+  // Show input line
+  const isCompiling = raw.trimStart().startsWith(':') ||
+                      (multiline.length > 1 && !raw.includes(';'));
+  addLine(raw, 'input' + (isCompiling ? ' compiling' : ''));
+  inp.value = '';
+
+  // Detect end of multi-line block: contains ; or is simple expression
+  const full = multiline.join('\n');
+  const openColons  = (full.match(/(?<![^:\s]):/g)  || []).length;
+  const closeColons = (full.match(/;/g) || []).length;
+
+  if (openColons <= closeColons) {
+    ws.send(full);
+    multiline = [];
+  } else {
+    // still inside a definition — show continuation prompt
+    prompt.textContent = '   ';
+  }
+}
+
+function resetEnv() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send('RESET');
+    multiline = [];
+    prompt.textContent = 'ok>';
+    addLine('( environment reset )', 'sys');
+  }
+}
+
+// ── Keyboard ───────────────────────────────────────────────────────────────────
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendLine();
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIdx < history.length - 1) {
+      histIdx++;
+      inp.value = history[histIdx];
+    }
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIdx > 0) {
+      histIdx--;
+      inp.value = history[histIdx];
+    } else {
+      histIdx = -1;
+      inp.value = '';
+    }
+    return;
+  }
+});
+
+// Keep focus
+document.addEventListener('keydown', e => {
+  if (e.target !== inp && !e.ctrlKey && !e.metaKey && e.key.length === 1) {
+    inp.focus();
+  }
+});
+
+// ── Examples ───────────────────────────────────────────────────────────────────
+function tryExample(src) {
+  inp.value = '';
+  multiline = [];
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    const lines = src.split('\n');
+    for (const line of lines) {
+      addLine(line, 'input');
+    }
+    ws.send(src);
+  }
+  inp.focus();
+}
+
+function tryFizzBuzz() {
+  tryExample(
+`: FIZZBUZZ
+  21 1 DO
+    I 15 MOD 0= IF ." FizzBuzz "
+    ELSE I 3 MOD 0= IF ." Fizz "
+    ELSE I 5 MOD 0= IF ." Buzz "
+    ELSE I .
+    THEN THEN THEN
+  LOOP ;
+FIZZBUZZ`);
+}
+
+function trySieve() {
+  tryExample(
+`\\ Primes < 50 via sieve
+50 CONSTANT LIMIT
+VARIABLE FLAGS
+
+\\ Initialize: 0 = prime
+: INIT  LIMIT 0 DO  I FLAGS + !  LOOP ;
+
+\\ Simple variable array using offset arithmetic
+\\ (simulated with 50 individual vars — see SEE FLAGS for addr)
+\\ Simplified: use trial division instead
+: PRIME?  ( n -- flag )
+  DUP 2 < IF DROP 0 EXIT THEN
+  DUP 2 = IF DROP -1 EXIT THEN
+  DUP 2 MOD 0= IF DROP 0 EXIT THEN
+  DUP  ( n n )
+  2    ( n n 2 )
+  BEGIN
+    2DUP DUP * >   ( exit when divisor^2 > n )
+  WHILE
+    2DUP SWAP MOD 0= IF 2DROP 0 EXIT THEN
+    SWAP 2 + SWAP
+  REPEAT
+  2DROP -1 ;
+
+: PRIMES  LIMIT 2 DO  I PRIME? IF I . THEN  LOOP ;
+PRIMES`);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+addLine('Wesley\'s Forth — connecting to server…', 'sys');
+connect();
+</script>
+</body>
+</html>
