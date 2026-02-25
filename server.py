@@ -170,16 +170,18 @@ def read_http_request(sock: socket.socket):
     return method, path, headers
 
 
-def http_send(sock: socket.socket, status: int, content_type: str, body: bytes):
-    response = (
+def http_send(sock: socket.socket, status: int, content_type: str, body: bytes,
+              head_only: bool = False):
+    """Send an HTTP response. Set head_only=True for HEAD requests (no body, RFC 7231 §4.3.2)."""
+    headers = (
         f'HTTP/1.1 {status} {"OK" if status==200 else "Not Found"}\r\n'
         f'Content-Type: {content_type}\r\n'
         f'Content-Length: {len(body)}\r\n'
         'Connection: close\r\n'
         '\r\n'
-    ).encode() + body
+    ).encode()
     try:
-        sock.sendall(response)
+        sock.sendall(headers if head_only else headers + body)
     except OSError:
         pass
 
@@ -208,13 +210,13 @@ def handle_connection(sock: socket.socket, addr):
         sock.close()
         return
 
-    # Serve HTML page
-    if method == 'GET' and norm in ('/forth', '/forth/', '/forth/index.html'):
+    # Serve HTML page (GET) or headers-only (HEAD) — RFC 7231 §4.3.2
+    if method in ('GET', 'HEAD') and norm in ('/forth', '/forth/', '/forth/index.html'):
         if HTML_PATH.exists():
             body = HTML_PATH.read_bytes()
         else:
             body = b'<html><body>forth.html not found</body></html>'
-        http_send(sock, 200, 'text/html; charset=utf-8', body)
+        http_send(sock, 200, 'text/html; charset=utf-8', body, head_only=(method == 'HEAD'))
         sock.close()
         return
 
