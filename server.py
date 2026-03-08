@@ -25,9 +25,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from forth import ForthFull
 
-PORT     = 3005
-WS_GUID  = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+PORT      = 3005
+WS_GUID   = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 HTML_PATH = Path(__file__).parent / 'forth.html'
+START_TIME = time.time()
 
 
 # ── WebSocket frame helpers ───────────────────────────────────────────────────
@@ -207,6 +208,20 @@ def handle_connection(sock: socket.socket, addr):
             sock.close()
             return
         handle_ws_session(sock, addr)
+        sock.close()
+        return
+
+    # Health endpoint
+    if method in ('GET', 'HEAD') and norm == '/forth/health':
+        import json as _json
+        body = _json.dumps({
+            'ok':             True,
+            'service':        'forth',
+            'version':        '1.1',
+            'uptime_seconds': int(time.time() - START_TIME),
+            'ts':             int(time.time() * 1000),
+        }).encode()
+        http_send(sock, 200, 'application/json', body, head_only=(method == 'HEAD'))
         sock.close()
         return
 
