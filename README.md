@@ -43,12 +43,13 @@ All control flow uses backpatching — words like `IF`, `ELSE`, `THEN`, `BEGIN`,
 
 ### The WebSocket Server (`server.py`)
 
-Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`). Implements RFC 6455 from scratch:
+Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `signal`). Implements RFC 6455 from scratch:
 
 - HTTP upgrade handshake with SHA-1 accept key
 - Frame parsing: opcodes, masking, continuation frames
 - Per-connection isolated interpreter instances
 - Text frame responses
+- Graceful SIGTERM shutdown — closes the listening socket and exits cleanly; all connection threads are daemon threads so they don't block exit
 
 ### The REPL (`forth.html`)
 
