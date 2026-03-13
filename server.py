@@ -14,6 +14,7 @@ import base64
 import hashlib
 import http.server
 import os
+import signal
 import socket
 import struct
 import sys
@@ -303,6 +304,13 @@ def main():
     srv.listen(32)
     print(f'Forth WebSocket server on 127.0.0.1:{PORT}', flush=True)
 
+    def _shutdown(signum, frame):
+        print('[forth] SIGTERM received, shutting down', flush=True)
+        srv.close()   # unblocks accept(); OSError branch below exits cleanly
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _shutdown)
+
     while True:
         try:
             conn, addr = srv.accept()
@@ -310,8 +318,8 @@ def main():
             t.start()
         except KeyboardInterrupt:
             break
-        except OSError as e:
-            print(f'Accept error: {e}', file=sys.stderr)
+        except OSError:
+            break    # srv.close() in _shutdown raises OSError on next accept()
 
 
 if __name__ == '__main__':
