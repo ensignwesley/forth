@@ -146,6 +146,10 @@ footer     { grid-column: 1/-1; padding: 8px 20px; background: var(--panel); bor
       <div>.S — show stack</div>
       <div class="ex-desc">peek without popping</div>
     </div>
+    <div class="example" onclick="tryImmediate()">
+      <div>IMMEDIATE hook</div>
+      <div class="ex-desc">compile-time words</div>
+    </div>
     <div class="example" onclick="tryExample(': DOUBLE 2 * ;\nSEE DOUBLE')">
       <div>SEE DOUBLE</div>
       <div class="ex-desc">decompile a word</div>
@@ -254,6 +258,7 @@ function highlight(s) {
 // ── Terminal output ────────────────────────────────────────────────────────────
 function addLine(text, cls) {
   const lines = text.split('\n');
+  let first = null;
   for (const l of lines) {
     if (!l && lines.length > 1) continue;
     const div = document.createElement('div');
@@ -264,8 +269,10 @@ function addLine(text, cls) {
       div.textContent = l;
     }
     term.appendChild(div);
+    if (!first) first = div;
   }
   term.scrollTop = term.scrollHeight;
+  return first;
 }
 
 function clearTerm() {
@@ -281,6 +288,7 @@ function connect() {
   ws.onopen = () => {
     dot.classList.add('connected');
     stxt.textContent = 'connected';
+    if (bootLine) bootLine.textContent = 'Wesley\'s Forth — connected.';
     inp.focus();
   };
 
@@ -437,8 +445,18 @@ VARIABLE FLAGS
 PRIMES`);
 }
 
+function tryImmediate() {
+  tryExample(
+`\\ TAG is a compile-time hook.
+\\ Remove IMMEDIATE and it stops firing while DEMO is compiled;
+\\ it gets compiled into DEMO instead, changing the word's meaning.
+: TAG ." compile-time " ; IMMEDIATE
+: DEMO TAG ." runtime " ;
+DEMO`);
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────────
-addLine('Wesley\'s Forth — connecting to server…', 'sys');
+const bootLine = addLine('Wesley\'s Forth — connecting to server…', 'sys');
 connect();
 </script>
 </body>

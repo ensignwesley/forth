@@ -211,7 +211,7 @@ class Forth:
             if self.compiling:
                 defn = self.words.get(upper)
                 if defn and defn.get('immediate'):
-                    defn['fn']()
+                    self._exec_defn(defn)
                 elif defn:
                     self._code.append(('CALL', upper))
                 else:
@@ -704,6 +704,10 @@ def run_tests():
         # String output
         ('." Hello, World!"',    'Hello, World!'),
         ('." one" SPACE ." two"','one two'),
+
+        # Immediate compiled words run during compilation
+        (': TAG ." compile-time " ; IMMEDIATE : DEMO TAG ." runtime " ; DEMO',
+         'compile-time runtime '),
 
         # IF/ELSE/THEN
         (': POS 0 > IF ." yes" ELSE ." no" THEN ; 5 POS',  'yes'),
