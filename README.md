@@ -75,7 +75,7 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 
 ## Test Suite
 
-62 tests, all passing:
+63 tests, all passing:
 
 ```bash
 python3 forth.py --test
