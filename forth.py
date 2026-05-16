@@ -644,6 +644,21 @@ class ForthFull(Forth):
             self._code.append(('CALL', self._name))
         self._def('RECURSE', w_recurse, imm=True)
 
+        # Define teaching/library words in Forth itself, not as Python built-ins.
+        # FIBONACCI keeps the interpreter honest: it uses normal colon
+        # definitions, conditionals, stack shuffling, arithmetic, and RECURSE.
+        boot = self.interpret('''
+: FIBONACCI  ( n -- fib[n] )
+  DUP 2 < IF
+  ELSE
+    DUP 1- RECURSE
+    SWAP 2 - RECURSE
+    +
+  THEN ;
+''')
+        if 'Error:' in boot:
+            raise ForthError(f'Bootstrap failed: {boot}')
+
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -748,6 +763,7 @@ def run_tests():
         # Recursion (RECURSE)
         (': FACT DUP 1 > IF DUP 1- RECURSE * THEN ; 5 FACT .', '120 '),
         (': FACT DUP 1 > IF DUP 1- RECURSE * THEN ; 10 FACT .', '3628800 '),
+        ('10 FIBONACCI .', '55 '),
 
         # >R R>
         (': RTEST >R DUP R> + ; 3 7 RTEST .', '10 '),

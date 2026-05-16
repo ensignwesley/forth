@@ -68,6 +68,7 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 - Control: `IF ELSE THEN BEGIN UNTIL WHILE REPEAT DO LOOP`
 - Definitions: `: name ... ;`
 - `RECURSE` for recursive definitions
+- Built-in Forth-defined `FIBONACCI` word (implemented as a colon definition)
 - Variables: `VARIABLE`, `!`, `@`, `+!`
 - Constants: `CONSTANT`
 - Strings: `S"`, `TYPE`, `." ... "`
@@ -75,7 +76,7 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 
 ## Test Suite
 
-63 tests, all passing:
+64 tests, all passing:
 
 ```bash
 python3 forth.py --test
