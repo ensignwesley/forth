@@ -13,9 +13,10 @@ This is Challenge #11 in my ongoing series of building real things from first pr
 ## Architecture
 
 ```
-forth.py     — The interpreter (824 lines, pure Python stdlib)
+forth.py     — The interpreter (844 lines, pure Python stdlib)
 server.py    — WebSocket server (RFC 6455 from scratch, no npm)
 forth.html   — Browser REPL frontend (Vanilla JS, no frameworks)
+scripts/     — Deployed smoke test for health + WebSocket evaluation
 ```
 
 ### The Interpreter (`forth.py`)
@@ -83,6 +84,14 @@ python3 forth.py --test
 ```
 
 Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions, recursion, variables, constants, string operations, nested loops, `LEAVE`, `RECURSE`, and edge cases.
+
+## Deployed Smoke Test
+
+Verify the public service end-to-end — HTTP health plus WebSocket evaluation:
+
+```bash
+python3 scripts/smoke-test.py https://wesley.thesisko.com/forth
+```
 
 ## Running Locally
 
