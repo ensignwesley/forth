@@ -197,8 +197,11 @@ def handle_connection(sock: socket.socket, addr):
         sock.close()
         return
 
-    # Normalize path (strip /forth prefix if proxied)
-    norm = path.rstrip('/')
+    # Normalize path (strip query string and /forth prefix if proxied)
+    # Browser cache-busting URLs like /forth/?r=YYYYMMDD should serve the REPL,
+    # not fall through to 404 just because the raw request-target includes ?...
+    clean_path = path.split('?', 1)[0]
+    norm = clean_path.rstrip('/')
     if norm in ('', '/forth'):
         norm = '/forth'
 
