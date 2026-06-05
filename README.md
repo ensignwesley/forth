@@ -72,18 +72,18 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 - Built-in Forth-defined `FIBONACCI` word (implemented as a colon definition)
 - Variables: `VARIABLE`, `!`, `@`, `+!`
 - Constants: `CONSTANT`
-- Strings: `S"`, `TYPE`, `." ... "`
+- Strings: `." ... "` output literals
 - Comments: `( ... )` and `\`
 
 ## Test Suite
 
-64 tests, all passing:
+65 tests, all passing:
 
 ```bash
 python3 forth.py --test
 ```
 
-Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions, recursion, variables, constants, string operations, nested loops, `LEAVE`, `RECURSE`, and edge cases.
+Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions, recursion, variables, constants, string output, nested loops, zero-iteration loops, `LEAVE`, `RECURSE`, and edge cases.
 
 ## Deployed Smoke Test
 

@@ -16,7 +16,7 @@ Instruction set:
   ('CALL',     name) call word by uppercase name
   ('BRANCH',   addr) jump to absolute addr
   ('0BRANCH',  addr) jump if TOS is 0
-  ('DO',)            pop (limit, start), push loop frame to rs
+  ('DO',      exit)  pop (limit, start), skip if start >= limit, otherwise push loop frame to rs
   ('LOOP',     back) step +1; loop if index < limit
   ('+LOOP',    back) step by TOS; loop based on direction
   ('I',)             push current loop index
@@ -269,6 +269,9 @@ class Forth:
             elif op == 'DO':
                 start = self._pop()
                 limit = self._pop()
+                if start >= limit:
+                    ip = instr[1] if len(instr) > 1 else ip + 1
+                    continue
                 self.rs.append(('LF', start, limit))   # Loop Frame
 
             elif op == 'LOOP':
@@ -440,17 +443,18 @@ class Forth:
         d._def('REPEAT', w_repeat, imm=True)
 
         def w_do():
-            d._code.append(('DO',))
-            d._ctrl.append(['DO', len(d._code), []])  # mutable: [kind, back, leaves]
+            d._code.append(('DO', 0))
+            d._ctrl.append(['DO', len(d._code), len(d._code) - 1, []])  # [kind, back, do_addr, leaves]
         d._def('DO', w_do, imm=True)
 
         def _end_loop(op):
             if not d._ctrl or d._ctrl[-1][0] != 'DO':
                 raise ForthError(f'{op} without DO')
             frame = d._ctrl.pop()
-            back, leaves = frame[1], frame[2]
+            back, do_addr, leaves = frame[1], frame[2], frame[3]
             d._code.append((op, back))
             exit_addr = len(d._code)
+            d._code[do_addr] = ('DO', exit_addr)
             for li in leaves:
                 d._code[li] = ('LEAVE', exit_addr)
 
@@ -460,7 +464,7 @@ class Forth:
         def w_leave():
             fi = d._find_do()
             d._code.append(('LEAVE', 0))
-            d._ctrl[fi][2].append(len(d._code) - 1)
+            d._ctrl[fi][3].append(len(d._code) - 1)
         d._def('LEAVE', w_leave, imm=True)
 
         # ── I, J — immediate (work in both modes) ────────────────────────────
@@ -647,6 +651,7 @@ class ForthFull(Forth):
         # Define teaching/library words in Forth itself, not as Python built-ins.
         # FIBONACCI keeps the interpreter honest: it uses normal colon
         # definitions, conditionals, stack shuffling, arithmetic, and RECURSE.
+        # FIZZBUZZ checks looping, modulo, branching, and output formatting.
         boot = self.interpret('''
 : FIBONACCI  ( n -- fib[n] )
   DUP 2 < IF
@@ -655,6 +660,15 @@ class ForthFull(Forth):
     SWAP 2 - RECURSE
     +
   THEN ;
+
+: FIZZBUZZ  ( n -- )
+  DUP 1+ 1 DO
+    I 15 MOD 0= IF ." FizzBuzz "
+    ELSE I 3 MOD 0= IF ." Fizz "
+    ELSE I 5 MOD 0= IF ." Buzz "
+    ELSE I .
+    THEN THEN THEN
+  LOOP ;
 ''')
         if 'Error:' in boot:
             raise ForthError(f'Bootstrap failed: {boot}')
@@ -769,16 +783,9 @@ def run_tests():
         (': RTEST >R DUP R> + ; 3 7 RTEST .', '10 '),
 
         # FizzBuzz
-        (''': FIZZBUZZ
-  21 1 DO
-    I 15 MOD 0= IF ." FizzBuzz "
-    ELSE I 3 MOD 0= IF ." Fizz "
-    ELSE I 5 MOD 0= IF ." Buzz "
-    ELSE I .
-    THEN THEN THEN
-  LOOP ;
-FIZZBUZZ''',
-         '1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz 16 17 Fizz 19 Buzz '),
+        ('15 FIZZBUZZ',
+         '1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz '),
+        ('0 FIZZBUZZ', ''),
 
         # LEAVE
         (': FIND5 10 0 DO I 5 = IF I . LEAVE THEN LOOP ; FIND5', '5 '),
