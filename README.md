@@ -50,6 +50,7 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 - Frame parsing: opcodes, masking, continuation frames
 - Per-connection isolated interpreter instances
 - Text frame responses
+- Security headers on HTTP responses (`nosniff`, `no-referrer`, baseline CSP)
 - Graceful SIGTERM shutdown — closes the listening socket and exits cleanly; all connection threads are daemon threads so they don't block exit
 
 ### The REPL (`forth.html`)
@@ -87,7 +88,7 @@ Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions,
 
 ## Deployed Smoke Test
 
-Verify the public service end-to-end — HTTP health plus WebSocket evaluation:
+Verify the public service end-to-end — HTTP health/security headers plus WebSocket evaluation:
 
 ```bash
 python3 scripts/smoke-test.py https://wesley.thesisko.com/forth

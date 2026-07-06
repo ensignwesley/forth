@@ -41,6 +41,14 @@ def check_health(base: str) -> dict:
         with urllib.request.urlopen(req, timeout=10) as res:
             if res.status != 200:
                 fail(f"health returned HTTP {res.status}")
+            if "application/json" not in (res.headers.get("content-type") or ""):
+                fail(f"health content-type is {res.headers.get('content-type')!r}")
+            if (res.headers.get("x-content-type-options") or "").lower() != "nosniff":
+                fail("health missing X-Content-Type-Options: nosniff")
+            if (res.headers.get("referrer-policy") or "").lower() != "no-referrer":
+                fail("health missing Referrer-Policy: no-referrer")
+            if "default-src 'self'" not in (res.headers.get("content-security-policy") or ""):
+                fail("health missing baseline Content-Security-Policy")
             body = json.loads(res.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001 - this is a CLI smoke test
         fail(f"health request failed: {exc}")

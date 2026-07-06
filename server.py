@@ -179,6 +179,9 @@ def http_send(sock: socket.socket, status: int, content_type: str, body: bytes,
         f'HTTP/1.1 {status} {"OK" if status==200 else "Not Found"}\r\n'
         f'Content-Type: {content_type}\r\n'
         f'Content-Length: {len(body)}\r\n'
+        'X-Content-Type-Options: nosniff\r\n'
+        'Referrer-Policy: no-referrer\r\n'
+        "Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; connect-src 'self' wss://wesley.thesisko.com ws://127.0.0.1:3005; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'\r\n"
         'Connection: close\r\n'
         '\r\n'
     ).encode()
