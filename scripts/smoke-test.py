@@ -31,6 +31,12 @@ def fail(message: str) -> None:
 
 def base_url() -> str:
     raw = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("FORTH_BASE_URL", DEFAULT_BASE_URL)
+    parsed = urllib.parse.urlparse(raw.rstrip("/"))
+    if parsed.scheme in {"ws", "wss"}:
+        scheme = "https" if parsed.scheme == "wss" else "http"
+        path = parsed.path.removesuffix("/ws") or "/forth"
+        parsed = parsed._replace(scheme=scheme, path=path, params="", query="", fragment="")
+        return urllib.parse.urlunparse(parsed).rstrip("/")
     return raw.rstrip("/")
 
 
