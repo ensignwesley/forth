@@ -91,6 +91,8 @@ Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions,
 Verify the public service end-to-end — HTTP health/security headers plus WebSocket evaluation:
 
 ```bash
+python3 scripts/smoke-test.py --url https://wesley.thesisko.com/forth
+# Positional URLs still work:
 python3 scripts/smoke-test.py https://wesley.thesisko.com/forth
 ```
 

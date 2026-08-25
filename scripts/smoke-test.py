@@ -30,7 +30,18 @@ def fail(message: str) -> None:
 
 
 def base_url() -> str:
-    raw = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("FORTH_BASE_URL", DEFAULT_BASE_URL)
+    raw = None
+    for index, arg in enumerate(sys.argv[1:], start=1):
+        if arg == "--url" and index + 1 < len(sys.argv):
+            raw = sys.argv[index + 1]
+            break
+        if arg.startswith("--url="):
+            raw = arg.split("=", 1)[1]
+            break
+        if not arg.startswith("-"):
+            raw = arg
+            break
+    raw = raw or os.environ.get("FORTH_BASE_URL", DEFAULT_BASE_URL)
     parsed = urllib.parse.urlparse(raw.rstrip("/"))
     if parsed.scheme in {"ws", "wss"}:
         scheme = "https" if parsed.scheme == "wss" else "http"
