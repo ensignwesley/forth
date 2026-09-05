@@ -165,10 +165,10 @@ def check_websocket(base: str) -> str:
     banner = recv_frame(sock)
     if "Wesley's Forth" not in banner:
         fail("missing Forth welcome banner")
-    send_frame(sock, "2 3 + .")
+    send_frame(sock, "HEX FF 1 + . DECIMAL")
     result = recv_frame(sock)
     sock.close()
-    if "5" not in result or "ok" not in result.lower():
+    if "100" not in result or "ok" not in result.lower():
         fail(f"unexpected eval result: {result!r}")
     return result.strip()
 

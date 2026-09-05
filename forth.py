@@ -69,12 +69,12 @@ def tokenize(src: str) -> list:
     return tokens
 
 
-def parse_num(s: str) -> int:
+def parse_num(s: str, base: int = 10) -> int:
     if s.startswith(('0x', '0X')):
         return int(s, 16)
     if s.startswith('$'):
         return int(s[1:], 16)
-    return int(s, 10)
+    return int(s, base)
 
 
 # ── Interpreter ───────────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ class Forth:
         self.rs:   list  = []
         self.mem:  dict  = {}
         self._next_addr  = 1
+        self.base = 10
         self.words: dict = {}
         self._order: list= []
         self.compiling   = False
@@ -98,6 +99,13 @@ class Forth:
 
     def _emit(self, s):
         self.out.append(str(s))
+
+    def _format_num(self, n: int) -> str:
+        n = int(n)
+        if self.base == 16:
+            sign = '-' if n < 0 else ''
+            return sign + format(abs(n), 'X')
+        return str(n)
 
     # ── Stack ─────────────────────────────────────────────────────────────────
 
@@ -219,7 +227,7 @@ class Forth:
                     self._code.append(('CALL', upper))
                 else:
                     try:
-                        self._code.append(('LIT', parse_num(word)))
+                        self._code.append(('LIT', parse_num(word, self.base)))
                     except ValueError:
                         raise ForthError(f'Unknown word (compile): {word}')
             else:
@@ -228,7 +236,7 @@ class Forth:
                     self._exec_defn(defn)
                 else:
                     try:
-                        self.ds.append(parse_num(word))
+                        self.ds.append(parse_num(word, self.base))
                     except ValueError:
                         raise ForthError(f'Undefined: {word}')
 
@@ -634,14 +642,14 @@ class Forth:
         d._def('DEPTH', lambda: d.ds.append(len(d.ds)))
 
         # ── Output ────────────────────────────────────────────────────────────
-        d._def('.',     lambda: d._emit(str(d._pop()) + ' '))
+        d._def('.',     lambda: d._emit(d._format_num(d._pop()) + ' '))
         d._def('EMIT',  lambda: d._emit(chr(d._pop() & 0xFF)))
         d._def('CR',    lambda: d._emit('\n'))
         d._def('SPACE', lambda: d._emit(' '))
         d._def('SPACES',lambda: d._emit(' ' * max(0, d._pop())))
         d._def('.S',    lambda: d._emit('<' + str(len(d.ds)) + '> ' +
-                                        ' '.join(str(x) for x in d.ds) + ' '))
-        d._def('?',     lambda: d._emit(str(d._fetch(d._pop())) + ' '))
+                                        ' '.join(d._format_num(x) for x in d.ds) + ' '))
+        d._def('?',     lambda: d._emit(d._format_num(d._fetch(d._pop())) + ' '))
 
         # ── Memory ────────────────────────────────────────────────────────────
         d._def('@',  lambda: d.ds.append(d._fetch(d._pop())))
@@ -651,8 +659,8 @@ class Forth:
         # ── Misc ──────────────────────────────────────────────────────────────
         d._def('WORDS', lambda: d._emit('  '.join(d._order)))
         d._def('CLEAR', lambda: d.ds.clear())
-        d._def('HEX',     lambda: None)   # simplified
-        d._def('DECIMAL', lambda: None)
+        d._def('HEX',     lambda: setattr(d, 'base', 16))
+        d._def('DECIMAL', lambda: setattr(d, 'base', 10))
         d._def('BYE',   lambda: sys.exit(0))
 
 
@@ -706,6 +714,9 @@ def run_tests():
         ('17 5 MOD .',           '2 '),
         ('17 5 /MOD . .',        '3 2 '),   # /MOD leaves (rem quot); . prints quot, . prints rem
         ('10 NEGATE .',          '-10 '),
+        ('HEX A DECIMAL .',      '10 '),
+        ('HEX FF 1 + . DECIMAL', '100 '),
+        ('HEX $10 0x10 + .',     '20 '),
         ('-7 ABS .',             '7 '),
         ('3 5 MAX .',            '5 '),
         ('3 5 MIN .',            '3 '),
@@ -744,6 +755,7 @@ def run_tests():
         ('42 .',                 '42 '),
         ('65 EMIT',              'A'),
         ('3 4 5 .S',             '<3> 3 4 5 '),
+        ('HEX 10 F .S',          '<2> 10 F '),
 
         # User-defined words
         (': SQUARE DUP * ; 5 SQUARE .', '25 '),

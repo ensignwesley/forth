@@ -74,19 +74,20 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 - Built-in Forth-defined `FIBONACCI` word (implemented as a colon definition)
 - Variables: `VARIABLE`, `!`, `@`, `+!`
 - Constants: `CONSTANT`
+- Number base switching: `HEX` and `DECIMAL` affect input parsing and numeric output
 - Strings: `." ... "` output literals
 - Comments: `( ... )` and `\`
 - Introspection: `WORDS`, `SEE name`, `DISASM name`
 
 ## Test Suite
 
-67 tests, all passing:
+71 tests, all passing:
 
 ```bash
 python3 forth.py --test
 ```
 
-Tests cover: arithmetic, stack ops, comparisons, control flow, word definitions, recursion, variables, constants, string output, nested loops, zero-iteration loops, `LEAVE`, `RECURSE`, and edge cases.
+Tests cover: arithmetic, number-base switching, stack ops, comparisons, control flow, word definitions, recursion, variables, constants, string output, nested loops, zero-iteration loops, `LEAVE`, `RECURSE`, and edge cases.
 
 ## Deployed Smoke Test
 
@@ -125,6 +126,8 @@ f.run(": SQUARE DUP * ; 5 SQUARE .")  # → 25
     DUP 1 - RECURSE *
   THEN ;
 10 FACTORIAL .   \ → 3628800
+
+HEX FF DECIMAL .     \ → 255
 
 VARIABLE counter
 0 counter !
