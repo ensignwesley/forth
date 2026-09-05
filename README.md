@@ -23,6 +23,7 @@ scripts/     — Deployed smoke test for health + WebSocket evaluation
 
 - **Dual-stack engine** — data stack + return stack
 - **Dictionary** — word definitions stored as compiled instruction lists
+- **VM introspection** — `SEE` decompiles words; `DISASM` shows numbered instructions and branch targets
 - **Outer interpreter** — tokenizes source, looks up or compiles each word
 - **Inner interpreter** — executes instruction lists with explicit instruction pointer
 
@@ -75,10 +76,11 @@ Pure Python stdlib only (`socket`, `threading`, `hashlib`, `base64`, `struct`, `
 - Constants: `CONSTANT`
 - Strings: `." ... "` output literals
 - Comments: `( ... )` and `\`
+- Introspection: `WORDS`, `SEE name`, `DISASM name`
 
 ## Test Suite
 
-65 tests, all passing:
+67 tests, all passing:
 
 ```bash
 python3 forth.py --test

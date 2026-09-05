@@ -196,15 +196,18 @@ class Forth:
                 if name not in self._order: self._order.append(name)
                 continue
 
-            # ── SEE ───────────────────────────────────────────────────────────
-            if upper == 'SEE':
+            # ── SEE / DISASM ─────────────────────────────────────────────────
+            if upper in ('SEE', 'DISASM'):
                 if i >= len(tokens):
-                    raise ForthError('SEE needs a name')
+                    raise ForthError(f'{upper} needs a name')
                 name = tokens[i][1].upper(); i += 1
                 defn = self.words.get(name)
                 if not defn:
-                    raise ForthError(f'SEE: unknown word {name}')
-                self._emit(self._see(name, defn))
+                    raise ForthError(f'{upper}: unknown word {name}')
+                if upper == 'SEE':
+                    self._emit(self._see(name, defn))
+                else:
+                    self._emit(self._disasm(name, defn))
                 continue
 
             # ── Compile or execute ───────────────────────────────────────────
@@ -333,7 +336,25 @@ class Forth:
 
             ip += 1
 
-    # ── SEE ───────────────────────────────────────────────────────────────────
+    # ── Introspection ──────────────────────────────────────────────────────────
+
+    def _format_instr(self, instr):
+        op = instr[0]
+        if   op == 'LIT':       return str(instr[1])
+        elif op == 'EMIT_STR':  return f'." {instr[1]}"'
+        elif op == 'CALL':      return instr[1]
+        elif op == 'BRANCH':    return f'BRANCH({instr[1]})'
+        elif op == '0BRANCH':   return f'0BRANCH({instr[1]})'
+        elif op == 'DO':        return f'DO→{instr[1]}'
+        elif op == 'LOOP':      return f'LOOP←{instr[1]}'
+        elif op == '+LOOP':     return f'+LOOP←{instr[1]}'
+        elif op == 'I':         return 'I'
+        elif op == 'J':         return 'J'
+        elif op == '>R':        return '>R'
+        elif op == 'R>':        return 'R>'
+        elif op == 'R@':        return 'R@'
+        elif op == 'LEAVE':     return f'LEAVE→{instr[1]}'
+        return repr(instr)
 
     def _see(self, name, defn):
         k = defn['kind']
@@ -346,20 +367,19 @@ class Forth:
         if k == 'compiled':
             parts = [f': {name}']
             for instr in defn['code']:
-                op = instr[0]
-                if   op == 'LIT':       parts.append(str(instr[1]))
-                elif op == 'EMIT_STR':  parts.append(f'." {instr[1]}"')
-                elif op == 'CALL':      parts.append(instr[1])
-                elif op == 'BRANCH':    parts.append(f'BRANCH({instr[1]})')
-                elif op == '0BRANCH':   parts.append(f'0BRANCH({instr[1]})')
-                elif op == 'DO':        parts.append('DO')
-                elif op == 'LOOP':      parts.append(f'LOOP←{instr[1]}')
-                elif op == '+LOOP':     parts.append(f'+LOOP←{instr[1]}')
-                elif op == 'LEAVE':     parts.append(f'LEAVE→{instr[1]}')
-                else:                   parts.append(repr(instr))
+                parts.append(self._format_instr(instr))
             parts.append(';')
             return ' '.join(parts)
         return f'( unknown kind: {k} )'
+
+    def _disasm(self, name, defn):
+        k = defn['kind']
+        if k != 'compiled':
+            return f'DISASM {name}: <{k}>'
+        lines = [f'DISASM {name}:']
+        for ip, instr in enumerate(defn['code']):
+            lines.append(f'{ip:04d}: {self._format_instr(instr)}')
+        return '\n'.join(lines)
 
     # ── Compile-time helpers ──────────────────────────────────────────────────
 
@@ -771,8 +791,10 @@ def run_tests():
         ('42 CONSTANT ANSWER ANSWER .', '42 '),
         ('0 CONSTANT FALSE FALSE .', '0 '),
 
-        # SEE (just check no error)
-        (': DOUBLE 2 * ; SEE DOUBLE', None),
+        # SEE and DISASM
+        (': DOUBLE 2 * ; SEE DOUBLE', ': DOUBLE 2 * ;'),
+        (': DOUBLE 2 * ; DISASM DOUBLE', 'DISASM DOUBLE:\n0000: 2\n0001: *'),
+        (': POS 0 > IF 1 ELSE 2 THEN ; DISASM POS', None),
 
         # Recursion (RECURSE)
         (': FACT DUP 1 > IF DUP 1- RECURSE * THEN ; 5 FACT .', '120 '),
